@@ -58,6 +58,12 @@ def test_tool_parameters(toolbox_module: types.ModuleType) -> None:
         "Electrical Transmission Infrastructure",
         "Environmental Exclusions",
     ]
+    assert [parameter.datatype for parameter in parameters[:4]] == [
+        "GPRasterLayer",
+        "GPRasterLayer",
+        "GPFeatureLayer",
+        "GPFeatureLayer",
+    ]
     assert [parameter.datatype for parameter in parameters[4:8]] == [
         "GPBoolean",
     ] * 4
