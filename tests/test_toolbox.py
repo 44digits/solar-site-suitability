@@ -25,24 +25,9 @@ class FakeParameter:
         self.error_message = message
 
 
-def test_toolbox_name(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The toolbox exposes the expected display name."""
-    monkeypatch.setitem(sys.modules, "arcpy", types.ModuleType("arcpy"))
-
-    loader = SourceFileLoader("SolarSiteSelection", str(PYT_FILE))
-    spec = importlib.util.spec_from_file_location(
-        "SolarSiteSelection", PYT_FILE, loader=loader
-    )
-    assert spec is not None and spec.loader is not None
-
-    toolbox_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(toolbox_module)
-
-    assert toolbox_module.Toolbox().label == "Solar Site Suitability Analysis"
-
-
-def test_tool_parameters(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The toolbox exposes the expected layers, download flags, and weights."""
+@pytest.fixture
+def toolbox_module(monkeypatch: pytest.MonkeyPatch) -> types.ModuleType:
+    """Load the Python toolbox with a minimal ArcPy replacement."""
     arcpy = types.ModuleType("arcpy")
     arcpy.Parameter = FakeParameter  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "arcpy", arcpy)
@@ -55,7 +40,16 @@ def test_tool_parameters(monkeypatch: pytest.MonkeyPatch) -> None:
 
     toolbox_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(toolbox_module)
+    return toolbox_module
 
+
+def test_toolbox_name(toolbox_module: types.ModuleType) -> None:
+    """The toolbox exposes the expected display name."""
+    assert toolbox_module.Toolbox().label == "Solar Site Suitability Analysis"
+
+
+def test_tool_parameters(toolbox_module: types.ModuleType) -> None:
+    """The toolbox exposes the expected layers, download flags, and weights."""
     parameters = toolbox_module.Tool().getParameterInfo()
 
     assert [parameter.displayName for parameter in parameters[:4]] == [
@@ -79,22 +73,9 @@ def test_tool_parameters(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_tool_validates_weights_sum_to_100(
-    monkeypatch: pytest.MonkeyPatch,
+    toolbox_module: types.ModuleType,
 ) -> None:
     """The tool rejects weight values that do not total 100."""
-    arcpy = types.ModuleType("arcpy")
-    arcpy.Parameter = FakeParameter  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "arcpy", arcpy)
-
-    loader = SourceFileLoader("SolarSiteSelection", str(PYT_FILE))
-    spec = importlib.util.spec_from_file_location(
-        "SolarSiteSelection", PYT_FILE, loader=loader
-    )
-    assert spec is not None and spec.loader is not None
-
-    toolbox_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(toolbox_module)
-
     tool = toolbox_module.Tool()
     parameters = tool.getParameterInfo()
     for parameter, value in zip(parameters[8:], [25, 25, 25, 24]):
